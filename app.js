@@ -29,8 +29,10 @@ const LOWER = "abcdefghijklmnopqrstuvwxyz".split("");
 
 const THAI_DIGIT_CHARS = ["๐","๑","๒","๓","๔","๕","๖","๗","๘","๙"];
 
-// building blocks for the Thai word-builder tray
-const THAI_VOWEL_PARTS = ["ะ","ั","า","ำ","ิ","ี","ึ","ื","ุ","ู","เ","แ","โ","ใ","ไ","อ","็"];
+// building blocks for the Thai word-builder tray — the full set of vowel
+// components/marks used across all 32 Thai vowels, plus the 4 standalone
+// vowel-consonants (ฤ ฤๅ ฦ ฦๅ), so any word can be spelled.
+const THAI_VOWEL_PARTS = ["ะ","ั","า","ำ","ิ","ี","ึ","ื","ุ","ู","เ","แ","โ","ใ","ไ","อ","็","ฤ","ฤๅ","ฦ","ฦๅ"];
 const ENG_VOWEL_LETTERS = ["A","E","I","O","U"];
 const ENG_CONSONANT_LETTERS = "BCDFGHJKLMNPQRSTVWXYZ".split("");
 
@@ -143,6 +145,12 @@ try {
 const app = document.getElementById("app");
 
 // ---------- SPEECH ----------
+// Primary: Google's own text-to-speech voice (same one Google Translate's
+// speaker button uses) via its public audio endpoint — sounds far closer to
+// Siri-quality than most phones' built-in Thai system voice, and sounds the
+// same for every listener regardless of device. Needs an internet connection.
+// Falls back automatically to the browser's built-in voice if that request
+// ever fails (offline, blocked, etc.).
 
 let voicesCache = [];
 function loadVoices() {
@@ -151,8 +159,6 @@ function loadVoices() {
 loadVoices();
 if ("speechSynthesis" in window) {
   window.speechSynthesis.onvoiceschanged = loadVoices;
-  // some browsers populate the voice list asynchronously with no reliable event;
-  // poll a few times shortly after load as a fallback.
   let tries = 0;
   const poll = setInterval(() => {
     tries++;
@@ -173,8 +179,7 @@ function pickVoice(lang) {
   return byName || null;
 }
 
-function speak(text, lang) {
-  if (!state.soundOn) return;
+function speakBrowserFallback(text, lang) {
   if (!("speechSynthesis" in window)) return;
   try {
     if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
@@ -192,6 +197,31 @@ function speak(text, lang) {
       window.speechSynthesis.speak(u);
     }, 40);
   } catch (e) {}
+}
+
+let currentAudio = null;
+
+function speak(text, lang) {
+  if (!state.soundOn || !text) return;
+  const ttsLang = (lang || "th-TH").toLowerCase().startsWith("en") ? "en" : "th";
+
+  try {
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${ttsLang}&client=tw-ob`;
+    const audio = new Audio(url);
+    audio.volume = 1;
+    currentAudio = audio;
+    const failed = () => { if (state.soundOn) speakBrowserFallback(text, lang); };
+    audio.addEventListener("error", failed, { once: true });
+    audio.play().catch(failed);
+  } catch (e) {
+    speakBrowserFallback(text, lang);
+  }
+}
+
+function stopSpeech() {
+  if (currentAudio) { try { currentAudio.pause(); } catch (e) {} currentAudio = null; }
+  if ("speechSynthesis" in window) { try { window.speechSynthesis.cancel(); } catch (e) {} }
 }
 
 // ---------- HOME SCREEN ----------
@@ -366,14 +396,14 @@ function escapeAttr(s) {
 
 function wireLessonEvents(maxBlank) {
   document.getElementById("backBtn").addEventListener("click", () => {
-    window.speechSynthesis && window.speechSynthesis.cancel();
+    stopSpeech();
     renderHome();
   });
 
   document.getElementById("soundBtn").addEventListener("click", () => {
     state.soundOn = !state.soundOn;
     try { localStorage.setItem("alphabet-app-sound", state.soundOn ? "1" : "0"); } catch (e) {}
-    if (!state.soundOn) window.speechSynthesis && window.speechSynthesis.cancel();
+    if (!state.soundOn) stopSpeech();
     renderLesson();
   });
 
@@ -593,14 +623,14 @@ function renderBuilder() {
 
 function wireBuilderEvents() {
   document.getElementById("backBtn").addEventListener("click", () => {
-    window.speechSynthesis && window.speechSynthesis.cancel();
+    stopSpeech();
     renderHome();
   });
 
   document.getElementById("soundBtn").addEventListener("click", () => {
     state.soundOn = !state.soundOn;
     try { localStorage.setItem("alphabet-app-sound", state.soundOn ? "1" : "0"); } catch (e) {}
-    if (!state.soundOn) window.speechSynthesis && window.speechSynthesis.cancel();
+    if (!state.soundOn) stopSpeech();
     renderBuilder();
   });
 

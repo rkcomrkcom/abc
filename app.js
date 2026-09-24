@@ -14,11 +14,25 @@ const THAI_VOWEL_PAIRS = [
   ["ฤ", "ฤ"], ["ฤๅ", "ฤๅ"], ["ฦ", "ฦ"], ["ฦๅ", "ฦๅ"],
 ];
 
-const ENGLISH_VOWELS = ["A", "E", "I", "O", "U"];
+// English-vs-Thai vowel comparison chart [label, spoken Thai forms]
+const ENG_VOWEL_CHART = [
+  ["A", "อะ อั อา"], ["Am", "อำ อาม"], ["I", "อิ อี"], ["U", "อึ อื อุ อู"],
+  ["E", "เอะ เอ็ เอ"], ["Ae", "แอะ แอ"], ["O", "โอะ โอ เอาะ ออ"], ["Oe", "เออะ เออ"],
+  ["Ai", "ใอ ไอ อัย ไอย อาย"], ["Ia", "เอียะ เอีย"], ["Ua", "เอือะ เอือ อัวะ อัว"],
+  ["Ao", "เอา อาว"], ["Ui", "อุย อูย"], ["Oi", "โอย ออย"], ["Oei", "เอย"],
+  ["Uai", "เอือย อวย"], ["Iu", "อิว"], ["Eo", "เอว"], ["Aeo", "แอว"], ["Ieo", "เอียว"],
+  ["Ru", "รึ รือ"], ["Ri", "ริ"], ["Roe", "เรอ"], ["Lu", "ฦ ฦๅ"],
+];
+
 const UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const LOWER = "abcdefghijklmnopqrstuvwxyz".split("");
 
 const THAI_DIGIT_CHARS = ["๐","๑","๒","๓","๔","๕","๖","๗","๘","๙"];
+
+// building blocks for the Thai word-builder tray
+const THAI_VOWEL_PARTS = ["ะ","ั","า","ำ","ิ","ี","ึ","ื","ุ","ู","เ","แ","โ","ใ","ไ","อ","็"];
+const ENG_VOWEL_LETTERS = ["A","E","I","O","U"];
+const ENG_CONSONANT_LETTERS = "BCDFGHJKLMNPQRSTVWXYZ".split("");
 
 function toThaiNumeral(n) {
   return String(n).split("").map((d) => THAI_DIGIT_CHARS[parseInt(d, 10)]).join("");
@@ -62,12 +76,8 @@ function buildItems(chars, opts) {
   }));
 }
 
-function buildVowelItems() {
-  return THAI_VOWEL_PAIRS.map(([display, speech]) => ({
-    ch: display,
-    lang: "th-TH",
-    speech,
-  }));
+function buildPairItems(pairs, lang) {
+  return pairs.map(([display, speech]) => ({ ch: display, lang, speech }));
 }
 
 function buildNumericItems(max, thaiNumerals) {
@@ -83,13 +93,23 @@ function buildNumericItems(max, thaiNumerals) {
 }
 
 const CATEGORIES = {
-  "thai-vowels": { name: "สระไทย", icon: "🍭", color: "c-pink", items: buildVowelItems() },
-  "eng-vowels": { name: "สระอังกฤษ", icon: "🍬", color: "c-teal", items: buildItems(ENGLISH_VOWELS, { lang: "en-US" }) },
+  "thai-vowels": { name: "สระไทย", icon: "🍭", color: "c-pink", items: buildPairItems(THAI_VOWEL_PAIRS, "th-TH") },
+  "eng-vowels": { name: "สระอังกฤษ", icon: "🍬", color: "c-teal", items: buildPairItems(ENG_VOWEL_CHART, "th-TH") },
   "consonants": { name: "ก - ฮ", icon: "🦉", color: "c-yellow", items: buildItems(THAI_CONSONANTS, { lang: "th-TH", speechOf: (ch) => ch + "อ" }) },
   "upper": { name: "A - Z", icon: "🔤", color: "c-purple", items: buildItems(UPPER, { lang: "en-US" }) },
   "lower": { name: "a - z", icon: "🔡", color: "c-blue", items: buildItems(LOWER, { lang: "en-US" }) },
   "digits": { name: "ตัวเลข", icon: "🔢", color: "c-green", numeric: true, thaiNumerals: false },
   "thai-digits": { name: "เลขไทย", icon: "🧮", color: "c-orange", numeric: true, thaiNumerals: true },
+  "thai-builder": {
+    name: "ผสมคำไทย", icon: "🧩", color: "c-red", type: "builder", lang: "th-TH",
+    consonants: buildItems(THAI_CONSONANTS, { lang: "th-TH", speechOf: (ch) => ch + "อ" }),
+    vowels: buildItems(THAI_VOWEL_PARTS, { lang: "th-TH" }),
+  },
+  "eng-builder": {
+    name: "ผสมคำอังกฤษ", icon: "🔡", color: "c-indigo", type: "builder", lang: "en-US",
+    consonants: buildItems(ENG_CONSONANT_LETTERS, { lang: "en-US" }),
+    vowels: buildItems(ENG_VOWEL_LETTERS, { lang: "en-US" }),
+  },
 };
 
 function getCategoryItems(catKey) {
@@ -112,6 +132,7 @@ const state = {
   soundOn: true,
   celebrated: false,
   numberMaxByCat: { digits: 9, "thai-digits": 9 },
+  builderWord: [],
 };
 
 try {
@@ -130,6 +151,14 @@ function loadVoices() {
 loadVoices();
 if ("speechSynthesis" in window) {
   window.speechSynthesis.onvoiceschanged = loadVoices;
+  // some browsers populate the voice list asynchronously with no reliable event;
+  // poll a few times shortly after load as a fallback.
+  let tries = 0;
+  const poll = setInterval(() => {
+    tries++;
+    loadVoices();
+    if (voicesCache.length || tries > 8) clearInterval(poll);
+  }, 300);
 }
 
 function pickVoice(lang) {
@@ -139,24 +168,29 @@ function pickVoice(lang) {
   if (exact) return exact;
   const prefix = lang.slice(0, 2).toLowerCase();
   const partial = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith(prefix));
-  return partial || null;
+  if (partial) return partial;
+  const byName = voices.find((v) => v.name && v.name.toLowerCase().includes(prefix === "th" ? "thai" : "english"));
+  return byName || null;
 }
 
 function speak(text, lang) {
   if (!state.soundOn) return;
   if (!("speechSynthesis" in window)) return;
   try {
-    window.speechSynthesis.cancel();
+    if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+      window.speechSynthesis.cancel();
+    }
+    window.speechSynthesis.resume();
     setTimeout(() => {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = lang || "th-TH";
       u.volume = 1;
-      u.rate = 0.85;
-      u.pitch = 1.05;
+      u.rate = 0.9;
+      u.pitch = 1;
       const v = pickVoice(u.lang);
       if (v) u.voice = v;
       window.speechSynthesis.speak(u);
-    }, 30);
+    }, 40);
   } catch (e) {}
 }
 
@@ -165,7 +199,10 @@ function speak(text, lang) {
 function renderHome() {
   state.screen = "home";
   const cards = Object.entries(CATEGORIES).map(([key, cat]) => {
-    const countLabel = cat.numeric ? "ปรับช่วงตัวเลขได้เอง" : `${cat.items.length} ตัว`;
+    let countLabel;
+    if (cat.type === "builder") countLabel = "ลากมาสะกดคำ";
+    else if (cat.numeric) countLabel = "ปรับช่วงตัวเลขได้เอง";
+    else countLabel = `${cat.items.length} ตัว`;
     return `
     <button class="cat-card ${cat.color}" data-key="${key}">
       <span class="blob">${cat.icon}</span>
@@ -190,10 +227,16 @@ function renderHome() {
 
   app.querySelectorAll(".cat-card").forEach((btn) => {
     btn.addEventListener("click", () => {
-      state.catKey = btn.dataset.key;
-      const total = getCategoryItems(state.catKey).length;
-      state.blankCount = clampBlank(state.blankCount, total);
-      openLesson(state.catKey);
+      const key = btn.dataset.key;
+      const cat = CATEGORIES[key];
+      state.catKey = key;
+      if (cat.type === "builder") {
+        openBuilder(key);
+      } else {
+        const total = getCategoryItems(key).length;
+        state.blankCount = clampBlank(state.blankCount, total);
+        openLesson(key);
+      }
     });
   });
 }
@@ -203,7 +246,7 @@ function clampBlank(n, total) {
   return Math.min(Math.max(n, 1), max);
 }
 
-// ---------- LESSON SCREEN ----------
+// ---------- QUIZ LESSON SCREEN ----------
 
 function openLesson(catKey) {
   state.screen = "lesson";
@@ -300,7 +343,7 @@ function renderLesson() {
         <span>จำนวนช่องว่าง</span>
         <div class="stepper">
           <button id="minusBtn">−</button>
-          <span class="count-val" id="countVal">${state.blankCount}</span>
+          <input type="number" class="count-val" id="countVal" value="${state.blankCount}" min="1" max="${maxBlank}" inputmode="numeric" />
           <button id="plusBtn">+</button>
         </div>
       </div>
@@ -334,15 +377,23 @@ function wireLessonEvents(maxBlank) {
     renderLesson();
   });
 
+  const countInput = document.getElementById("countVal");
   document.getElementById("minusBtn").addEventListener("click", () => {
     const total = getCategoryItems(state.catKey).length;
     state.blankCount = clampBlank(state.blankCount - 1, total);
-    document.getElementById("countVal").textContent = state.blankCount;
+    countInput.value = state.blankCount;
   });
   document.getElementById("plusBtn").addEventListener("click", () => {
     const total = getCategoryItems(state.catKey).length;
     state.blankCount = clampBlank(state.blankCount + 1, total);
-    document.getElementById("countVal").textContent = state.blankCount;
+    countInput.value = state.blankCount;
+  });
+  countInput.addEventListener("change", () => {
+    const total = getCategoryItems(state.catKey).length;
+    let v = parseInt(countInput.value, 10);
+    if (isNaN(v)) v = state.blankCount;
+    state.blankCount = clampBlank(v, total);
+    countInput.value = state.blankCount;
   });
 
   document.getElementById("generateBtn").addEventListener("click", () => {
@@ -394,7 +445,7 @@ function selectTrayTile(el) {
   el.classList.add("selected");
 }
 
-// ---------- DRAG & DROP (pointer events, mouse+touch unified) ----------
+// ---------- DRAG & DROP (quiz mode: pointer events, mouse+touch unified) ----------
 
 function wireDragging() {
   const trayTiles = document.querySelectorAll(".tray-tile");
@@ -489,6 +540,179 @@ function attemptPlace(trayEl, blankEl) {
       trayEl.classList.remove("shake");
     }, 400);
   }
+}
+
+// ---------- WORD BUILDER SCREEN ----------
+
+function openBuilder(catKey) {
+  state.screen = "builder";
+  state.builderWord = [];
+  renderBuilder();
+}
+
+function renderBuilder() {
+  const cat = CATEGORIES[state.catKey];
+
+  const wordHtml = state.builderWord.length
+    ? state.builderWord.map((t, i) => `<div class="tile word-tile" data-wi="${i}" data-say="${escapeAttr(t.speech)}" data-lang="${t.lang}">${t.ch}</div>`).join("")
+    : `<p class="empty-hint">ลากหรือแตะตัวอักษรด้านล่างมาต่อกันเป็นคำตรงนี้</p>`;
+
+  const consonantHtml = cat.consonants.map((c, i) => `
+    <div class="tile tray-tile consonant-tile" data-kind="consonant" data-i="${i}" data-say="${escapeAttr(c.speech)}" data-lang="${c.lang}">${c.ch}</div>
+  `).join("");
+  const vowelHtml = cat.vowels.map((v, i) => `
+    <div class="tile tray-tile vowel-tile" data-kind="vowel" data-i="${i}" data-say="${escapeAttr(v.speech)}" data-lang="${v.lang}">${v.ch}</div>
+  `).join("");
+
+  app.innerHTML = `
+    <div class="lesson">
+      <div class="lesson-top">
+        <button class="icon-btn" id="backBtn">⬅️</button>
+        <div class="lesson-title">${cat.icon} ${cat.name}</div>
+        <button class="icon-btn sound-btn ${state.soundOn ? "on" : "off"}" id="soundBtn">${state.soundOn ? "🔊" : "🔇"}</button>
+      </div>
+
+      <div class="word-board" id="wordBoard">${wordHtml}</div>
+
+      <div class="builder-actions">
+        <button class="listen-btn" id="listenWordBtn">🔊 ฟังคำนี้</button>
+        <button id="backspaceBtn">⌫ ลบตัวล่าสุด</button>
+        <button id="clearWordBtn">🗑️ ล้างคำ</button>
+      </div>
+
+      <p class="tray-label">พยัญชนะ</p>
+      <div class="tray" id="consonantTray">${consonantHtml}</div>
+
+      <p class="tray-label">สระ</p>
+      <div class="tray" id="vowelTray">${vowelHtml}</div>
+    </div>
+  `;
+
+  wireBuilderEvents();
+}
+
+function wireBuilderEvents() {
+  document.getElementById("backBtn").addEventListener("click", () => {
+    window.speechSynthesis && window.speechSynthesis.cancel();
+    renderHome();
+  });
+
+  document.getElementById("soundBtn").addEventListener("click", () => {
+    state.soundOn = !state.soundOn;
+    try { localStorage.setItem("alphabet-app-sound", state.soundOn ? "1" : "0"); } catch (e) {}
+    if (!state.soundOn) window.speechSynthesis && window.speechSynthesis.cancel();
+    renderBuilder();
+  });
+
+  document.getElementById("listenWordBtn").addEventListener("click", () => {
+    const cat = CATEGORIES[state.catKey];
+    if (!state.builderWord.length) return;
+    const word = state.builderWord.map((t) => t.ch).join("");
+    speak(word, cat.lang);
+  });
+
+  document.getElementById("backspaceBtn").addEventListener("click", () => {
+    state.builderWord.pop();
+    renderBuilder();
+  });
+
+  document.getElementById("clearWordBtn").addEventListener("click", () => {
+    state.builderWord = [];
+    renderBuilder();
+  });
+
+  // tap a tray tile: append to word + say the letter
+  document.querySelectorAll("#consonantTray .tray-tile, #vowelTray .tray-tile").forEach((el) => {
+    el.addEventListener("click", () => {
+      if (el.dataset.justDragged === "1") { el.dataset.justDragged = "0"; return; }
+      appendTileFromEl(el);
+    });
+    el.addEventListener("pointerdown", (e) => startBuilderDrag(e, el));
+  });
+
+  // tap a placed word tile to hear that single letter, or remove it
+  document.querySelectorAll(".word-tile").forEach((el) => {
+    el.addEventListener("click", () => {
+      speak(el.dataset.say, el.dataset.lang);
+    });
+  });
+}
+
+function appendTileFromEl(el) {
+  const cat = CATEGORIES[state.catKey];
+  const kind = el.dataset.kind;
+  const i = parseInt(el.dataset.i, 10);
+  const item = kind === "consonant" ? cat.consonants[i] : cat.vowels[i];
+  if (!item) return;
+  state.builderWord.push(item);
+  renderBuilder();
+  speak(item.speech, item.lang);
+}
+
+let builderDragCtx = null;
+
+function startBuilderDrag(e, tile) {
+  e.preventDefault();
+  const rect = tile.getBoundingClientRect();
+  const ghost = tile.cloneNode(true);
+  ghost.classList.add("dragging");
+  ghost.style.width = rect.width + "px";
+  ghost.style.height = rect.height + "px";
+  ghost.style.left = rect.left + "px";
+  ghost.style.top = rect.top + "px";
+  document.body.appendChild(ghost);
+  tile.style.opacity = "0.35";
+
+  builderDragCtx = {
+    tile,
+    ghost,
+    offsetX: e.clientX - rect.left,
+    offsetY: e.clientY - rect.top,
+    moved: false,
+  };
+
+  window.addEventListener("pointermove", onBuilderDragMove);
+  window.addEventListener("pointerup", onBuilderDragEnd);
+}
+
+function onBuilderDragMove(e) {
+  if (!builderDragCtx) return;
+  builderDragCtx.moved = true;
+  builderDragCtx.ghost.style.left = (e.clientX - builderDragCtx.offsetX) + "px";
+  builderDragCtx.ghost.style.top = (e.clientY - builderDragCtx.offsetY) + "px";
+
+  const board = document.getElementById("wordBoard");
+  builderDragCtx.ghost.style.display = "none";
+  const under = document.elementFromPoint(e.clientX, e.clientY);
+  builderDragCtx.ghost.style.display = "";
+  if (board) {
+    if (under && under.closest("#wordBoard")) board.classList.add("drag-over");
+    else board.classList.remove("drag-over");
+  }
+}
+
+function onBuilderDragEnd(e) {
+  if (!builderDragCtx) return;
+  const { tile, ghost, moved } = builderDragCtx;
+
+  window.removeEventListener("pointermove", onBuilderDragMove);
+  window.removeEventListener("pointerup", onBuilderDragEnd);
+
+  const board = document.getElementById("wordBoard");
+  if (board) board.classList.remove("drag-over");
+  ghost.style.display = "none";
+  const under = moved ? document.elementFromPoint(e.clientX, e.clientY) : null;
+  ghost.remove();
+  tile.style.opacity = "";
+
+  const droppedOnBoard = under && under.closest("#wordBoard");
+  if (droppedOnBoard && moved) {
+    tile.dataset.justDragged = "1";
+    setTimeout(() => { if (tile.isConnected) tile.dataset.justDragged = "0"; }, 350);
+    appendTileFromEl(tile);
+  }
+
+  builderDragCtx = null;
 }
 
 // ---------- CELEBRATION ----------

@@ -17,6 +17,8 @@
   --blue-deep: #2c86e0;
   --green: #6bce6e;
   --green-deep: #4aad4d;
+  --orange: #ff9f5a;
+  --orange-deep: #ef7d2d;
 
   --radius-lg: 28px;
   --radius-md: 18px;
@@ -152,6 +154,7 @@ button {
 .cat-card.c-purple { background: linear-gradient(135deg, var(--purple), var(--purple-deep)); }
 .cat-card.c-blue   { background: linear-gradient(135deg, var(--blue), var(--blue-deep)); }
 .cat-card.c-green  { background: linear-gradient(135deg, var(--green), var(--green-deep)); }
+.cat-card.c-orange { background: linear-gradient(135deg, var(--orange), var(--orange-deep)); }
 
 /* ---------- LESSON ---------- */
 
@@ -211,8 +214,9 @@ button {
   font-family: 'Mitr', sans-serif;
   font-weight: 600;
   font-size: 26px;
-  width: 56px;
+  min-width: 56px;
   height: 56px;
+  padding: 0 10px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -400,7 +404,46 @@ button {
   to { transform: translateY(110vh) rotate(360deg); opacity: 0.9; }
 }
 
+.number-range {
+  gap: 8px;
+}
+
+.number-range input[type="number"] {
+  width: 68px;
+  height: 34px;
+  border-radius: 10px;
+  border: 2px solid #e6e8f7;
+  text-align: center;
+  font-family: 'Mitr', sans-serif;
+  font-size: 16px;
+  color: var(--ink);
+  background: #f8f9ff;
+}
+
+.number-range input[type="number"]:focus {
+  outline: none;
+  border-color: var(--purple);
+}
+
+.range-presets {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.range-presets button {
+  background: #f1f3ff;
+  color: var(--purple-deep);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+
+.range-presets button:active { transform: translateY(2px); }
+
 @media (max-width: 480px) {
-  .tile { width: 48px; height: 48px; font-size: 21px; }
+  .tile { min-width: 48px; height: 48px; font-size: 21px; padding: 0 8px; }
   .lesson-title { font-size: 18px; }
 }

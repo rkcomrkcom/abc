@@ -3,13 +3,18 @@
 const THAI_CONSONANTS = ["ก","ข","ฃ","ค","ฅ","ฆ","ง","จ","ฉ","ช","ซ","ฌ","ญ","ฎ","ฏ","ฐ","ฑ","ฒ","ณ","ด","ต","ถ","ท","ธ","น","บ","ป","ผ","ฝ","พ","ฟ","ภ","ม","ย","ร","ล","ว","ศ","ษ","ส","ห","ฬ","อ","ฮ"];
 
 // [display with "-" placeholder, spoken form using อ as carrier]
+// [display, spoken form]. Vowels that stack a floating mark (ั ิ ี ึ ื ุ ู)
+// need a real Thai base letter (อ) to render correctly — a plain "-" leaves
+// the mark with nothing valid to attach to and shows as a blank box on many
+// phones. Vowels that are full-width characters (ะ า ำ) or sit beside the
+// base rather than on top of it (เ แ โ ใ ไ -อ) render fine with a "-".
 const THAI_VOWEL_PAIRS = [
-  ["-ะ", "อะ"], ["-า", "อา"], ["-ิ", "อิ"], ["-ี", "อี"],
-  ["-ึ", "อึ"], ["-ือ", "อือ"], ["-ุ", "อุ"], ["-ู", "อู"],
+  ["-ะ", "อะ"], ["-า", "อา"], ["อิ", "อิ"], ["อี", "อี"],
+  ["อึ", "อึ"], ["อือ", "อือ"], ["อุ", "อุ"], ["อู", "อู"],
   ["เ-ะ", "เอะ"], ["เ-", "เอ"], ["แ-ะ", "แอะ"], ["แ-", "แอ"],
   ["โ-ะ", "โอะ"], ["โ-", "โอ"], ["เ-าะ", "เอาะ"], ["-อ", "ออ"],
-  ["เ-อะ", "เออะ"], ["เ-อ", "เออ"], ["เ-ียะ", "เอียะ"], ["เ-ีย", "เอีย"],
-  ["เ-ือะ", "เอือะ"], ["เ-ือ", "เอือ"], ["-ัวะ", "อัวะ"], ["-ัว", "อัว"],
+  ["เ-อะ", "เออะ"], ["เ-อ", "เออ"], ["เอียะ", "เอียะ"], ["เอีย", "เอีย"],
+  ["เอือะ", "เอือะ"], ["เอือ", "เอือ"], ["อัวะ", "อัวะ"], ["อัว", "อัว"],
   ["-ำ", "อำ"], ["ใ-", "ใอ"], ["ไ-", "ไอ"], ["เ-า", "เอา"],
   ["ฤ", "ฤ"], ["ฤๅ", "ฤๅ"], ["ฦ", "ฦ"], ["ฦๅ", "ฦๅ"],
 ];
@@ -207,7 +212,11 @@ function speak(text, lang) {
 
   try {
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${ttsLang}&client=tw-ob`;
+    // NOTE: Google's endpoint checks a text-length parameter server-side.
+    // Thai is multi-byte UTF-8, so without idx/total/textlen it silently
+    // rejects Thai requests while plain-ASCII English still goes through —
+    // that's why only English was audible. Adding them fixes Thai too.
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${ttsLang}&client=tw-ob&idx=0&total=1&textlen=${text.length}`;
     const audio = new Audio(url);
     audio.volume = 1;
     currentAudio = audio;

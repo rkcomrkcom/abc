@@ -337,10 +337,47 @@ button {
   background: var(--white);
   box-shadow: 0 -6px 20px rgba(43,45,66,0.12);
   border-radius: 22px 22px 0 0;
-  padding: 12px 18px calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: 0 18px calc(10px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
+  align-items: center;
+}
+
+.collapse-tab {
+  width: 64px;
+  height: 24px;
+  border-radius: 0 0 14px 14px;
+  background: var(--white);
+  box-shadow: 0 6px 12px rgba(43,45,66,0.12);
+  color: var(--purple-deep);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.bar-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 10px;
+  padding-top: 12px;
+}
+
+.control-bar.collapsed {
+  box-shadow: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.control-bar.collapsed .collapse-tab {
+  pointer-events: auto;
+}
+
+.control-bar.collapsed .bar-content {
+  display: none;
 }
 
 .bar-row {
@@ -348,16 +385,6 @@ button {
   align-items: center;
   justify-content: center;
   gap: 14px;
-}
-
-.settings-panel {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  flex-wrap: wrap;
-  padding-bottom: 4px;
-  border-bottom: 1px solid #f0f1fa;
 }
 
 .blank-count {

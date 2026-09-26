@@ -384,9 +384,9 @@ function renderLesson() {
       }
     </div>
 
-    <div class="control-bar">
-      ${state.settingsOpen ? `
-      <div class="settings-panel">
+    <div class="control-bar ${state.settingsOpen ? "" : "collapsed"}">
+      <button class="collapse-tab" id="collapseTab" aria-label="เปิด/ปิดแถบควบคุม">${state.settingsOpen ? "▼" : "▲"}</button>
+      <div class="bar-content">
         ${numberRangeHtml}
         <div class="blank-count">
           <span>จำนวนช่องว่าง</span>
@@ -396,10 +396,6 @@ function renderLesson() {
             <button id="plusBtn">+</button>
           </div>
         </div>
-      </div>
-      ` : ""}
-      <div class="bar-row">
-        <button class="icon-btn" id="settingsToggle">${state.settingsOpen ? "✖️" : "⚙️"}</button>
         <button class="generate-btn" id="generateBtn">🔀 สร้างใหม่</button>
       </div>
     </div>
@@ -431,7 +427,7 @@ function wireLessonEvents(maxBlank) {
     renderLesson();
   });
 
-  document.getElementById("settingsToggle").addEventListener("click", () => {
+  document.getElementById("collapseTab").addEventListener("click", () => {
     state.settingsOpen = !state.settingsOpen;
     renderLesson();
   });

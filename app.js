@@ -37,7 +37,7 @@ const THAI_DIGIT_CHARS = ["๐","๑","๒","๓","๔","๕","๖","๗","๘",
 // building blocks for the Thai word-builder tray — the full set of vowel
 // components/marks used across all 32 Thai vowels, plus the 4 standalone
 // vowel-consonants (ฤ ฤๅ ฦ ฦๅ), so any word can be spelled.
-const THAI_VOWEL_PARTS = ["ะ","ั","า","ำ","ิ","ี","ึ","ื","ุ","ู","เ","แ","โ","ใ","ไ","อ","็","ฤ","ฤๅ","ฦ","ฦๅ"];
+const THAI_VOWEL_PARTS = ["ะ","ั",["า", "อา"],"ำ","ิ","ี","ึ","ื","ุ","ู","เ","แ","โ","ใ","ไ","อ","็","ฤ","ฤๅ","ฦ","ฦๅ"];
 const THAI_TONE_MARKS = ["่","้","๊","๋"];
 const ENG_VOWEL_LETTERS = ["A","E","I","O","U"];
 const ENG_CONSONANT_LETTERS = "BCDFGHJKLMNPQRSTVWXYZ".split("");

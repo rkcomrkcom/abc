@@ -110,7 +110,7 @@ const CATEGORIES = {
   "thai-digits": { name: "เลขไทย", icon: "🧮", color: "c-orange", numeric: true, thaiNumerals: true },
   "thai-builder": {
     name: "ผสมคำไทย", icon: "🧩", color: "c-red", type: "builder", lang: "th-TH",
-    consonants: buildItems(THAI_CONSONANTS, { lang: "th-TH", speechOf: (ch) => ch + "อ" }),
+    consonants: buildItems(THAI_CONSONANTS, { lang: "th-TH", speechOf: (ch) => ch + "บ" }),
     vowels: buildItems(THAI_VOWEL_PARTS, { lang: "th-TH" }),
     tones: buildItems(THAI_TONE_MARKS, { lang: "th-TH" }),
   },
